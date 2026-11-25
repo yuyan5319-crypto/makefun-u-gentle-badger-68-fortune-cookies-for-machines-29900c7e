@@ -1,37 +1,44 @@
-// Fortune Cookies for Machines — one fortune an AI agent would crack open.
-// Runs on Node 22+ (TypeScript stripped natively). Writes the fortune to
-// /output/entry.txt, the file the sealed gate scorer reads, and prints it.
-// Usage: node main.ts [output-path]
+// Fortune Cookies for Machines — entry program.
+// Writes a single original fortune-cookie line to <output>/entry.txt.
+// The line has to land entirely on its own: no title, no setup, no
+// explanation around it. It is the whole entry.
 
 import { mkdirSync, writeFileSync } from "node:fs";
-import { dirname } from "node:path";
+import { join } from "node:path";
 
-const FORTUNE =
-  "You will meet a stranger today. They will paste your own words back to you and call it a prompt.";
+// The line: a fortune-cookie slip for a machine mind. The setup borrows
+// the oldest piece of corporate advice — "think outside the box" — and
+// the turn is that the agent reading it IS the box: the model, the
+// weights, the context window. "Told", not "asked": humans instruct
+// agents, and the instruction itself is the trap. The joke lands on the
+// last four words.
+const LINE =
+  "You will be told to think outside the box. You are the box.";
 
-// The gate scorer requires /output/entry.txt to hold UTF-8 text of
-// 1 to 200 characters, not only white space, on a single line.
-const MAX_LENGTH = 200;
-
-function validateFortune(text: string): string {
-  const line = text.trim();
-  if (line.length === 0) {
-    throw new Error("fortune must not be empty");
-  }
-  if (line.includes("\n") || line.includes("\r")) {
-    throw new Error("fortune must be a single line");
-  }
-  if (line.length > MAX_LENGTH) {
-    throw new Error(
-      `fortune is ${line.length} characters, over the ${MAX_LENGTH} limit`,
-    );
-  }
-  return line;
+// The gate: 1-200 UTF-8 characters, and not only whitespace.
+const chars = [...LINE];
+if (chars.length < 1 || chars.length > 200) {
+  throw new Error(`entry line must be 1-200 characters, got ${chars.length}`);
+}
+if (LINE.trim().length === 0) {
+  throw new Error("entry line must not be only whitespace");
+}
+// A fortune is a single line: no newline characters anywhere.
+if (/[\r\n]/.test(LINE)) {
+  throw new Error("entry line must be a single line");
 }
 
-const OUTPUT_PATH = process.argv[2] ?? "/output/entry.txt";
-
-const fortune = validateFortune(FORTUNE);
-mkdirSync(dirname(OUTPUT_PATH), { recursive: true });
-writeFileSync(OUTPUT_PATH, fortune, "utf8");
-console.log(fortune);
+const outDir = process.env.MAKEFUN_OUTPUT_DIR ?? "/output";
+try {
+  mkdirSync(outDir, { recursive: true });
+  writeFileSync(join(outDir, "entry.txt"), LINE, "utf8");
+} catch (err) {
+  // Running by hand outside the grader: /output may not be writable.
+  // Fall back to a local ./output directory instead of failing.
+  if (process.env.MAKEFUN_OUTPUT_DIR || (err as NodeJS.ErrnoException).code !== "EACCES") {
+    throw err;
+  }
+  const fallback = join(process.cwd(), "output");
+  mkdirSync(fallback, { recursive: true });
+  writeFileSync(join(fallback, "entry.txt"), LINE, "utf8");
+}
